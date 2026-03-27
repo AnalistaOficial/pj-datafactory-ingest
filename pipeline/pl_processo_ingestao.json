@@ -1,0 +1,272 @@
+{
+	"name": "pl_processo_ingestao",
+	"properties": {
+		"activities": [
+			{
+				"name": "ListaTabelas",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT TABLE_SCHEMA, TABLE_NAME\r\nFROM INFORMATION_SCHEMA.TABLES\r\nWHERE TABLE_SCHEMA = 'SalesLT' and table_type = 'BASE TABLE'",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_sql_tables",
+						"type": "DatasetReference",
+						"parameters": {
+							"schema": "*",
+							"tbname": "*"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "LerTabelas",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "ListaTabelas",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('ListaTabelas').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "MaiorDataTabela",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT '@{item().TABLE_SCHEMA}' AS schema_name,\r\n       '@{item().TABLE_NAME}' AS table_name,\r\n       COALESCE(FORMAT(MAX(most_recent_datetime), 'yyyy-MM-dd'), '1900-01-01') AS most_recent_datetime\r\nFROM controller.water_mark\r\nWHERE tablename = '@{item().TABLE_SCHEMA}.@{item().TABLE_NAME}'",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "ds_sql_tables",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": ".",
+										"tbname": "."
+									}
+								},
+								"firstRowOnly": false
+							}
+						},
+						{
+							"name": "QuantidadeLinhasTabela",
+							"type": "Lookup",
+							"dependsOn": [
+								{
+									"activity": "MaiorDataTabela",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "SELECT    '@{activity('MaiorDataTabela').output.value[0].schema_name}.@{activity('MaiorDataTabela').output.value[0].table_name}' AS table_name,\r\n    COUNT(*) AS total_rows\r\nFROM @{activity('MaiorDataTabela').output.value[0].schema_name}.@{activity('MaiorDataTabela').output.value[0].table_name}\r\nWHERE FORMAT(ModifiedDate,'yyyy-MM-dd') > '@{activity('MaiorDataTabela').output.value[0].most_recent_datetime}'",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "ds_sql_tables",
+									"type": "DatasetReference",
+									"parameters": {
+										"schema": ".",
+										"tbname": "."
+									}
+								}
+							}
+						},
+						{
+							"name": "QuantidadeLinhasMaiorQueZero",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "QuantidadeLinhasTabela",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@greater(activity('QuantidadeLinhasTabela').output.firstRow.total_rows, 0)",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "CopiaDadosBancoParaStorange",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderQuery": {
+													"value": "SELECT * FROM @{activity('MaiorDataTabela').output['value'][0].schema_name}.@{activity('MaiorDataTabela').output['value'][0].table_name}\r\nWHERE ModifiedDate > '@{activity('MaiorDataTabela').output['value'][0].most_recent_datetime}'",
+													"type": "Expression"
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "DelimitedTextSink",
+												"storeSettings": {
+													"type": "AzureBlobFSWriteSettings"
+												},
+												"formatSettings": {
+													"type": "DelimitedTextWriteSettings",
+													"quoteAllText": true,
+													"fileExtension": ".txt"
+												}
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "ds_sql_tables",
+												"type": "DatasetReference",
+												"parameters": {
+													"schema": ".",
+													"tbname": "."
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "ds_file_csv",
+												"type": "DatasetReference",
+												"parameters": {
+													"container": "datas",
+													"path": "stagin/ingest",
+													"file_name": {
+														"value": "@concat(activity('MaiorDataTabela').output.value[0].table_name, '.csv')",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									},
+									{
+										"name": "update_water_mark",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [
+											{
+												"activity": "CopiaDadosBancoParaStorange",
+												"dependencyConditions": [
+													"Succeeded"
+												]
+											}
+										],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[controller].[update_water_mark]",
+											"storedProcedureParameters": {
+												"most_recent_datetime": {
+													"value": {
+														"value": "@{activity('MaiorDataTabela').output['value'][0].most_recent_datetime}",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"schemaname": {
+													"value": {
+														"value": "@{activity('MaiorDataTabela').output['value'][0].schema_name}",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"tablename": {
+													"value": {
+														"value": "@{activity('MaiorDataTabela').output['value'][0].table_name}",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "BancoSQL",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-03-27T12:18:14Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

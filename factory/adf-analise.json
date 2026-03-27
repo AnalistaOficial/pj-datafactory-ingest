@@ -1,0 +1,9 @@
+{
+	"name": "adf-analise",
+	"location": "westus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "12f8ec3c-8da6-4bbc-8cb1-e8a2713f33e2",
+		"tenantId": "3b30e0a2-e263-41f9-87c8-cbd742177170"
+	}
+}

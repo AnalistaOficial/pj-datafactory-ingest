@@ -1,0 +1,24 @@
+{
+	"name": "BancoSQL",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "analise-server-sql.database.windows.net",
+			"database": "free-sql-db-6762718",
+			"encrypt": "mandatory",
+			"trustServerCertificate": false,
+			"authenticationType": "SQL",
+			"userName": "analise",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "akv_analise",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "analise"
+			}
+		}
+	}
+}

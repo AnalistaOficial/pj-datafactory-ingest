@@ -1,0 +1,22 @@
+{
+	"name": "ds_file_Parquet",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "DataLake",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": "part-00000-8ac2c723-f496-42be-b4f6-312eaff5f79c.c000.snappy.parquet",
+				"folderPath": "gold/fact_sales",
+				"fileSystem": "datas"
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
