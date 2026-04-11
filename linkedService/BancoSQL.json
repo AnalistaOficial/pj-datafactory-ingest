@@ -1,24 +1,17 @@
 {
 	"name": "BancoSQL",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
 	"properties": {
 		"annotations": [],
 		"type": "AzureSqlDatabase",
 		"typeProperties": {
-			"server": "analise-server-sql.database.windows.net",
-			"database": "free-sql-db-6762718",
+			"server": "estudo-sqlserver.database.windows.net",
+			"database": "estudo-sqldb",
 			"encrypt": "mandatory",
 			"trustServerCertificate": false,
 			"authenticationType": "SQL",
-			"userName": "analise",
-			"password": {
-				"type": "AzureKeyVaultSecret",
-				"store": {
-					"referenceName": "akv_analise",
-					"type": "LinkedServiceReference"
-				},
-				"secretName": "analise"
-			}
+			"userName": "estudo",
+			"encryptedCredential": "ew0KICAiVmVyc2lvbiI6ICIyMDE3LTExLTMwIiwNCiAgIlByb3RlY3Rpb25Nb2RlIjogIktleSIsDQogICJTZWNyZXRDb250ZW50VHlwZSI6ICJQbGFpbnRleHQiLA0KICAiQ3JlZGVudGlhbElkIjogIkRBVEFGQUNUT1JZQEM5RjQ2QjIzLTlBQzMtNEVBQi05RTNGLTE5QzNBMDRBODU3MV9kOGNiZGJjMC03OTRlLTQzNzMtYjQ5Yi02YWZjYWY1YmIzMTQiDQp9"
 		}
-	},
-	"type": "Microsoft.DataFactory/factories/linkedservices"
+	}
 }
